@@ -68,12 +68,17 @@ function renderRosterView() {
     if (!feed) return;
     feed.innerHTML = "";
     
+    if (rosterPool.length === 0) {
+        feed.innerHTML = `<div class="empty-state-text">No players registered in the vault.</div>`;
+        return;
+    }
+    
     rosterPool.forEach(p => {
         feed.innerHTML += `
             <div class="player-row-chip">
                 <div>
                     <strong>${p.name}</strong>
-                    <span class="pool-player-meta">${p.role} // ${p.hand}</span>
+                    <span class="pool-player-meta" style="display:block; font-size:0.8rem; color:var(--text-dim);">${p.role} // ${p.hand}</span>
                 </div>
                 <span class="remove-player-trigger" onclick="removePrototypePlayer('${p.id}')">Delete</span>
             </div>`;
@@ -85,7 +90,7 @@ function registerPrototypePlayer() {
     const name = nameInput.value.trim();
     if (!name) return triggerToastNotification("Player Name Required", true);
     
-    const id = "p-" + (rosterPool.length + 1);
+    const id = "p-" + Date.now();
     rosterPool.push({
         id: id,
         name: name,
@@ -101,6 +106,7 @@ function registerPrototypePlayer() {
 function removePrototypePlayer(id) {
     rosterPool = rosterPool.filter(p => p.id !== id);
     renderRosterView();
+    triggerToastNotification(`Profile removed safely`);
 }
 
 // ==========================================
@@ -110,9 +116,14 @@ function populateSetupDropdowns() {
     const s1 = document.getElementById('setupStrikerId');
     const s2 = document.getElementById('setupNonStrikerId');
     const b1 = document.getElementById('setupBowlerId');
-    if (!s1) return;
+    if (!s1 || !s2 || !b1) return;
     
     s1.innerHTML = ""; s2.innerHTML = ""; b1.innerHTML = "";
+    
+    if (rosterPool.length < 3) {
+        triggerToastNotification("Please ensure at least 3 players are registered in the Roster Vault first.", true);
+        return;
+    }
     
     rosterPool.forEach((p, idx) => {
         const opt = `<option value="${p.id}" ${idx===0?'selected':''}>${p.name} (${p.role})</option>`;
@@ -129,11 +140,14 @@ function initializePrototypeMatch() {
     const nsId = document.getElementById('setupNonStrikerId').value;
     const bId = document.getElementById('setupBowlerId').value;
     
+    if (!sId || !nsId || !bId) {
+        return triggerToastNotification("Assignments invalid. Populate roster profiles completely.", true);
+    }
     if (sId === nsId) return triggerToastNotification("Striker and Non-Striker must be unique profiles", true);
     
     matchState.teamA = document.getElementById('setupTeamAName').value || "Home Side";
     matchState.teamB = document.getElementById('setupTeamBName').value || "Away Side";
-    matchState.maxOvers = parseInt(document.getElementById('setupOversLimit').value);
+    matchState.maxOvers = parseInt(document.getElementById('setupOversLimit').value) || 2;
     matchState.currentInnings = 1;
     matchState.eventLedger = [];
     
@@ -172,11 +186,18 @@ function handlePrototypeBall(type, runs, extraType = null, dismissal = null) {
         return;
     }
     
+    // Safety verification check for assignment gaps during runtime entries
+    if (matchState.strikerId === null || matchState.nonStrikerId === null || matchState.currentBowlerId === null) {
+        triggerToastNotification("Assign missing crease positions before recording events", true);
+        renderLiveConsoleUI();
+        return;
+    }
+    
     // Append tracking event block payload
     matchState.eventLedger.push({
         innings: matchState.currentInnings,
         type: type,
-        runs: parseInt(runs),
+        runs: parseInt(runs) || 0,
         extraType: extraType,
         dismissal: dismissal,
         strikerId: matchState.strikerId,
@@ -188,7 +209,7 @@ function handlePrototypeBall(type, runs, extraType = null, dismissal = null) {
 }
 
 function triggerPrototypeExtra(extType) {
-    handlePrototypeBall('EXTRA', extType === 'WD' ? 0 : 0, extType);
+    handlePrototypeBall('EXTRA', 0, extType);
 }
 
 function rebuildMetricsFromLedger() {
@@ -197,9 +218,9 @@ function rebuildMetricsFromLedger() {
     matchState.innings2 = createInningsSchema(matchState.teamB, matchState.teamA);
     
     // Set active assignment references to starting context choices
-    const initStriker = document.getElementById('setupStrikerId')?.value || rosterPool[0]?.id;
-    const initNonStriker = document.getElementById('setupNonStrikerId')?.value || rosterPool[1]?.id;
-    const initBowler = document.getElementById('setupBowlerId')?.value || rosterPool[2]?.id;
+    const initStriker = document.getElementById('setupStrikerId')?.value || (rosterPool[0] ? rosterPool[0].id : null);
+    const initNonStriker = document.getElementById('setupNonStrikerId')?.value || (rosterPool[1] ? rosterPool[1].id : null);
+    const initBowler = document.getElementById('setupBowlerId')?.value || (rosterPool[2] ? rosterPool[2].id : null);
     
     matchState.strikerId = initStriker;
     matchState.nonStrikerId = initNonStriker;
@@ -215,8 +236,8 @@ function rebuildMetricsFromLedger() {
         
         if (event.type === 'RUN') {
             curInn.totalRuns += event.runs;
-            curInn.batsmen[event.strikerId].runs += event.runs;
-            curInn.bowlers[event.bowlerId].runs += event.runs;
+            if (event.strikerId) curInn.batsmen[event.strikerId].runs += event.runs;
+            if (event.bowlerId) curInn.bowlers[event.bowlerId].runs += event.runs;
             
             if (event.runs % 2 !== 0) switchCreasePositions();
         } 
@@ -225,25 +246,27 @@ function rebuildMetricsFromLedger() {
                 isLegalBall = false;
                 curInn.totalRuns += 1;
                 curInn.extras.wd += 1;
-                curInn.bowlers[event.bowlerId].runs += 1;
+                curInn.extras.total += 1;
+                if (event.bowlerId) curInn.bowlers[event.bowlerId].runs += 1;
             } else if (event.extraType === 'NB') {
                 isLegalBall = false;
                 curInn.totalRuns += 1;
                 curInn.extras.nb += 1;
-                curInn.bowlers[event.bowlerId].runs += 1;
+                curInn.extras.total += 1;
+                if (event.bowlerId) curInn.bowlers[event.bowlerId].runs += 1;
             }
         } 
         else if (event.type === 'WICKET') {
             curInn.wickets += 1;
-            curInn.bowlers[event.bowlerId].wickets += 1;
-            curInn.batsmen[event.strikerId].outStatus = event.dismissal;
+            if (event.bowlerId) curInn.bowlers[event.bowlerId].wickets += 1;
+            if (event.strikerId) curInn.batsmen[event.strikerId].outStatus = event.dismissal || "Out";
             matchState.strikerId = null; // Vacates crease strike slot
         }
         
         if (isLegalBall) {
             curInn.totalBalls += 1;
-            curInn.batsmen[event.strikerId].balls += 1;
-            curInn.bowlers[event.bowlerId].balls += 1;
+            if (event.strikerId) curInn.batsmen[event.strikerId].balls += 1;
+            if (event.bowlerId) curInn.bowlers[event.bowlerId].balls += 1;
             
             // Check over wrap transitions
             if (curInn.totalBalls % 6 === 0 && curInn.totalBalls > 0) {
@@ -288,16 +311,19 @@ function switchCreasePositions() {
 
 function evaluateInningsLifecycleTransitions() {
     const curInn = matchState.currentInnings === 1 ? matchState.innings1 : matchState.innings2;
+    if (!curInn) return;
     const totalMaxBalls = matchState.maxOvers * 6;
     
     if (matchState.currentInnings === 1) {
         if (curInn.wickets >= 10 || curInn.totalBalls >= totalMaxBalls) {
             matchState.currentInnings = 2;
-            switchCreasePositions(); // Rotate side out
-            triggerToastNotification("First Innings Completed! Targets mapped.");
+            matchState.strikerId = document.getElementById('setupStrikerId')?.value || null;
+            matchState.nonStrikerId = document.getElementById('setupNonStrikerId')?.value || null;
+            matchState.currentBowlerId = document.getElementById('setupBowlerId')?.value || null;
+            triggerToastNotification("First Innings Completed! Target set.");
         }
     } else {
-        const target = matchState.innings1.totalRuns + 1;
+        const target = (matchState.innings1 ? matchState.innings1.totalRuns : 0) + 1;
         if (curInn.totalRuns >= target || curInn.wickets >= 10 || curInn.totalBalls >= totalMaxBalls) {
             triggerToastNotification("Match Complete! View full log summaries.");
             switchView('view-analytics');
@@ -354,12 +380,20 @@ function promptPrototypeSub(positionKey) {
     select.innerHTML = "";
     title.innerText = positionKey === 'bowler' ? "SELECT OVER BOWLER" : "ASSIGN NEW BATSMAN";
     
+    let optionsCount = 0;
     rosterPool.forEach(p => {
         // Guard against assigning a profile already occupied at the opposite crease side
         if (p.id !== matchState.strikerId && p.id !== matchState.nonStrikerId && p.id !== matchState.currentBowlerId) {
             select.innerHTML += `<option value="${p.id}">${p.name} (${p.role})</option>`;
+            optionsCount++;
         }
     });
+    
+    if(optionsCount === 0) {
+        triggerToastNotification("No unique players available in roster pool! Add more profiles.", true);
+        modal.style.display = "none";
+        return;
+    }
     
     modal.style.display = "flex";
 }
@@ -386,15 +420,19 @@ function renderAnalyticsView() {
     if (!area) return;
     area.innerHTML = "";
     
+    let internalContentCount = 0;
+    
     [matchState.innings1, matchState.innings2].forEach((inn, index) => {
         if (!inn || inn.totalBalls === 0) return;
+        internalContentCount++;
         
         let html = `
-        <div class="bento-card full-width">
+        <div class="bento-card full-width" style="padding: 24px; background: rgba(255, 255, 255, 0.02); margin-bottom: 20px;">
             <span class="card-label">INNINGS ${index + 1} // ${inn.battingTeam}</span>
-            <h3>${inn.totalRuns} / ${inn.wickets} <span class="pool-player-meta">(${Math.floor(inn.totalBalls/6)}.${inn.totalBalls%6} Overs)</span></h3>
+            <h3 style="margin-top: 10px;">${inn.totalRuns} / ${inn.wickets} <span class="pool-player-meta">(${Math.floor(inn.totalBalls/6)}.${inn.totalBalls%6} Overs)</span></h3>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin: 5px 0 15px 0;">Extras: Total ${inn.extras.total} (Wd: ${inn.extras.wd}, Nb: ${inn.extras.nb})</p>
             
-            <span class="card-sub-label">Batting Tallies</span>
+            <span class="card-sub-label" style="display:block; margin-top:15px; font-weight:700;">Batting Tallies</span>
             <table>
                 <thead>
                     <tr><th class="text-left">Batsman</th><th>Runs</th><th>Balls</th><th class="text-right">Status</th></tr>
@@ -402,18 +440,22 @@ function renderAnalyticsView() {
                 <tbody>`;
                 
         Object.entries(inn.batsmen).forEach(([id, b]) => {
-            html += `<tr><td><strong>${b.name}</strong></td><td class="text-center">${b.runs}</td><td class="text-center">${b.balls}</td><td class="text-right pool-player-meta">${b.outStatus}</td></tr>`;
+            html += `<tr><td><strong>${b.name}</strong></td><td class="text-center" style="text-align:center;">${b.runs}</td><td class="text-center" style="text-align:center;">${b.balls}</td><td class="text-right pool-player-meta" style="text-align:right;">${b.outStatus}</td></tr>`;
         });
         
-        html += `</tbody></table><span class="card-sub-label">Bowling Efficiency</span><table><thead><tr><th class="text-left">Bowler</th><th>Overs</th><th>Runs</th><th class="text-right">Wickets</th></tr></thead><tbody>`;
+        html += `</tbody></table><span class="card-sub-label" style="display:block; margin-top:15px; font-weight:700;">Bowling Efficiency</span><table><thead><tr><th class="text-left">Bowler</th><th>Overs</th><th>Runs</th><th class="text-right">Wickets</th></tr></thead><tbody>`;
         
         Object.entries(inn.bowlers).forEach(([id, b]) => {
-            html += `<tr><td><strong>${b.name}</strong></td><td class="text-center">${Math.floor(b.balls/6)}.${b.balls%6}</td><td class="text-center">${b.runs}</td><td class="text-right">${b.wickets}</td></tr>`;
+            html += `<tr><td><strong>${b.name}</strong></td><td class="text-center" style="text-align:center;">${Math.floor(b.balls/6)}.${b.balls%6}</td><td class="text-center" style="text-align:center;">${b.runs}</td><td class="text-right" style="text-align:right;">${b.wickets}</td></tr>`;
         });
         
         html += `</tbody></table></div>`;
         area.innerHTML += html;
     });
+    
+    if(internalContentCount === 0) {
+        area.innerHTML = `<div class="empty-state-text">No metrics logged. Complete balls inside the console to populate analysis.</div>`;
+    }
 }
 
 function accessSpectatorMatch() {
