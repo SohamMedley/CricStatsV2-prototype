@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CricStats v2 // Cyber-Editorial Edition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Live Notification Banner -->
+    <div id="feedbackToast" class="feedback-toast-banner"></div>
+
+    <div class="mobile-container">
+        
+        <!-- ==========================================
+             VIEW 1: GATEWAY / LANDING ENTRANCE 
+             ========================================== -->
+        <div id="view-gateway" class="spa-view active">
+            <div class="top-nav">
+                <div class="logo-btn" onclick="switchView('view-dashboard')">
+                    <span class="logo-dot"></span>
+                    <span class="logo-text">CS-v2</span>
+                </div>
+            </div>
+            <div class="score-header-box">
+                <h2>Cricket Analytics</h2>
+                <h1>CRIC<br>STATS</h1>
+                <p>Standalone V2 Engine Active</p>
+            </div>
+            <div class="bento-stack">
+                <div class="bento-card full-width">
+                    <span class="card-label">Spectator Portal</span>
+                    <input type="text" id="spectatorMatchCode" placeholder="ENTER 6-DIGIT MATCH PIN (E.G. LOCAL-STATE)">
+                    <button onclick="accessSpectatorMatch()">View Live Scorecard</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW 2: MAIN ADMIN DASHBOARD
+             ========================================== -->
+        <div id="view-dashboard" class="spa-view">
+            <div class="page-header">
+                <h2 class="page-title">Dashboard</h2>
+                <button class="nav-back-btn" onclick="switchView('view-gateway')">Exit Engine</button>
+            </div>
+            <div class="bento-grid">
+                <div class="bento-card full-width" onclick="switchView('view-roster')">
+                    <div>
+                        <span class="card-label">Roster Deployment</span>
+                        <h3>Player Profiles</h3>
+                    </div>
+                    <span class="card-sub-label">Manage & Register Roster Pools →</span>
+                </div>
+                <div class="bento-card" onclick="switchView('view-setup')">
+                    <div>
+                        <span class="card-label">Match Logic</span>
+                        <h3>Setup Engine</h3>
+                    </div>
+                    <span class="card-sub-label">Initialize Match Variables →</span>
+                </div>
+                <div class="bento-card" onclick="loadLiveConsoleDirectly()">
+                    <div>
+                        <span class="card-label">Active State</span>
+                        <h3>Live Console</h3>
+                    </div>
+                    <span class="card-sub-label">Resume Current Ledger →</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW 3: ROSTER POOL SETUP
+             ========================================== -->
+        <div id="view-roster" class="spa-view">
+            <div class="page-header">
+                <h2 class="page-title">Roster Vault</h2>
+                <button class="nav-back-btn" onclick="switchView('view-dashboard')">Dashboard</button>
+            </div>
+            <div class="bento-stack">
+                <div class="bento-card full-width">
+                    <span class="card-label">Profile Registry</span>
+                    <input type="text" id="newPlayerName" placeholder="Full Professional Name">
+                    <span class="card-sub-label">Field Assignment Role</span>
+                    <select id="newPlayerRole">
+                        <option value="Batsman">Batsman</option>
+                        <option value="Bowler">Bowler</option>
+                        <option value="All-rounder">All-rounder</option>
+                        <option value="Wicketkeeper">Wicketkeeper</option>
+                    </select>
+                    <span class="card-sub-label">Hand Configuration</span>
+                    <select id="newPlayerHand">
+                        <option value="Right-handed">Right-handed</option>
+                        <option value="Left-handed">Left-handed</option>
+                    </select>
+                    <button onclick="registerPrototypePlayer()">Commit Profile</button>
+                </div>
+                <div class="bento-card full-width">
+                    <span class="card-label">Registered Roster Feed</span>
+                    <div id="prototypeRosterFeed" class="squad-list-container">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW 4: MATCH ENGINE INITIALIZATION
+             ========================================== -->
+        <div id="view-setup" class="spa-view">
+            <div class="page-header">
+                <h2 class="page-title">Setup Engine</h2>
+                <button class="nav-back-btn" onclick="switchView('view-dashboard')">Dashboard</button>
+            </div>
+            <div class="bento-stack">
+                <div class="bento-card full-width">
+                    <span class="card-label">Squad Blueprints</span>
+                    <span class="card-sub-label">Team Alpha (Home)</span>
+                    <input type="text" id="setupTeamAName" value="Mumbai Titans">
+                    <span class="card-sub-label">Team Omega (Away)</span>
+                    <input type="text" id="setupTeamBName" value="Badlapur Warriors">
+                    <span class="card-sub-label">Overs Allocation Limit</span>
+                    <select id="setupOversLimit">
+                        <option value="1">1 Over Showcase</option>
+                        <option value="2">2 Overs Mini</option>
+                        <option value="5">5 Overs Blitz</option>
+                        <option value="20">20 Overs Standard</option>
+                    </select>
+                </div>
+                <div class="bento-card full-width">
+                    <span class="card-label">Initial Crease Assignments</span>
+                    <span class="card-sub-label">Opening Striker</span>
+                    <select id="setupStrikerId"></select>
+                    <span class="card-sub-label">Opening Non-Striker</span>
+                    <select id="setupNonStrikerId"></select>
+                    <span class="card-sub-label">Opening Attack Bowler</span>
+                    <select id="setupBowlerId"></select>
+                </div>
+            </div>
+            <button class="btn-full-width" onclick="initializePrototypeMatch()">Deploy Engine State</button>
+        </div>
+
+        <!-- ==========================================
+             VIEW 5: LIVE SCORING CONSOLE
+             ========================================== -->
+        <div id="view-scorecard" class="spa-view">
+            <div class="page-header">
+                <div>
+                    <span class="card-label" style="background:transparent;box-shadow:none;padding:0;">LIVE DATA STREAM</span>
+                    <h2 class="page-title" id="consoleTeamDisplay">-</h2>
+                </div>
+                <button class="nav-back-btn" onclick="switchView('view-analytics')">Deep Stats</button>
+            </div>
+            <div class="score-header-box">
+                <h2 id="consoleInningsBadge">INNINGS 1</h2>
+                <h1 id="consoleScoreDisplay">0/0</h1>
+                <p>Overs: <span id="consoleOversDisplay">0.0</span> / <span id="consoleMaxOversDisplay">0</span></p>
+            </div>
+            <div class="bento-stack">
+                <div class="bento-card full-width">
+                    <div class="player-row-chip font-bold border-none">
+                        <span>Batsman at Crease</span><span>R (B)</span>
+                    </div>
+                    <div class="player-row-chip border-none" id="consoleStrikerRow">
+                        <span>* Striker</span><span>0 (0)</span>
+                    </div>
+                    <div class="player-row-chip border-none" id="consoleNonStrikerRow">
+                        <span>Non-Striker</span><span>0 (0)</span>
+                    </div>
+                </div>
+                <div class="bento-card full-width">
+                    <div class="player-row-chip font-bold border-none">
+                        <span>Active Bowler Array</span><span>O - M - R - W</span>
+                    </div>
+                    <div class="player-row-chip border-none" id="consoleBowlerRow">
+                        <span>Bowler</span><span>0.0 - 0 - 0 - 0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="action-pad-grid">
+                <button class="btn-run" onclick="handlePrototypeBall('RUN', 0)">0</button>
+                <button class="btn-run" onclick="handlePrototypeBall('RUN', 1)">1</button>
+                <button class="btn-run" onclick="handlePrototypeBall('RUN', 2)">2</button>
+                <button class="btn-run" onclick="handlePrototypeBall('RUN', 3)">3</button>
+                <button class="btn-run" onclick="handlePrototypeBall('RUN', 4)">4</button>
+                <button class="btn-run" onclick="handlePrototypeBall('RUN', 6)">6</button>
+                <button class="btn-extra" onclick="triggerPrototypeExtra('WD')">WD</button>
+                <button class="btn-extra" onclick="triggerPrototypeExtra('NB')">NB</button>
+                <button class="btn-wicket" onclick="handlePrototypeBall('WICKET', 0, null, 'Bowled')">BOWLED</button>
+                <button class="btn-wicket" onclick="handlePrototypeBall('WICKET', 0, null, 'Catch Out')">CATCH OUT</button>
+            </div>
+            <button class="secondary btn-full-width" onclick="handlePrototypeBall('UNDO', 0)">↺ Undo Last Event Entry</button>
+        </div>
+
+        <!-- ==========================================
+             VIEW 6: DEEP PERFORMANCE METRICS
+             ========================================== -->
+        <div id="view-analytics" class="spa-view">
+            <div class="page-header">
+                <h2 class="page-title">Performance Log</h2>
+                <button class="nav-back-btn" onclick="switchView('view-scorecard')">Live Board</button>
+            </div>
+            <div id="analyticsOutputContainer" class="bento-stack">
+                <!-- Data metrics tables compiled natively -->
+            </div>
+            <div class="control-deck-footer">
+                <button class="secondary" onclick="switchView('view-dashboard')">Dashboard</button>
+                <button onclick="switchView('view-scorecard')">Live View</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modals Layer Elements for Standalone Crease Substitutions -->
+    <div id="substitutionModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="subModalTitle">Select Replacement</h3>
+            <span class="card-sub-label">Available Squad Pool</span>
+            <select id="subPlayerSelect"></select>
+            <button class="btn-full-width" onclick="commitPrototypeSubstitution()">Assign Position</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
