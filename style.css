@@ -417,7 +417,7 @@ button.secondary:hover {
     border: none;
     border-bottom: var(--border-hairline);
     font-size: 1rem;
-    transition: padding var(--speed-fluid) var(--ease-ios);
+    transition: padding var(--speed-fluid) ease-in-out;
 }
 
 .player-row-chip:hover {
